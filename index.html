@@ -195,6 +195,14 @@ input[type=number]:focus{outline:none;border-color:var(--gold);}
 .winner-screen .export-panel{max-width:360px;margin:1.5rem auto 0;text-align:left;}
 .exp-title{font-family:'Bebas Neue',cursive;letter-spacing:0.06em;color:var(--gold);font-size:1.05rem;}
 .exp-select{background:#0c0a06;border:1px solid rgba(246,201,14,0.25);color:var(--text);padding:0.45rem 0.6rem;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;}
+.help-back{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:500;display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+.help-box{background:#0d0a06;border:1px solid rgba(246,201,14,0.35);border-radius:16px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;padding:1.6rem 1.8rem;box-shadow:0 20px 60px rgba(0,0,0,0.7);}
+.help-box h2{font-size:1.9rem;color:var(--gold);margin-bottom:0.2rem;}
+.help-box h3{font-family:'Bebas Neue',cursive;letter-spacing:0.06em;color:var(--gold);font-size:1.15rem;margin:1.2rem 0 0.4rem;font-weight:400;}
+.help-box p,.help-box li{font-size:0.95rem;line-height:1.5;color:var(--text);}
+.help-box ol,.help-box ul{padding-left:1.3rem;display:flex;flex-direction:column;gap:0.35rem;}
+.help-box li b{color:var(--gold);}
+.help-close{float:right;}
 .hidden{display:none !important;}
 </style>
 </head>
@@ -213,11 +221,50 @@ input[type=number]:focus{outline:none;border-color:var(--gold);}
   </div>
   <div class="nav-badge">
     <div class="live-badge"><span class="live-dot" id="liveDot"></span><span id="phaseLabel">Setup</span></div>
+    <button class="btn btn-sec btn-sm" onclick="toggleHelp(true)">❓ How to play</button>
     <button class="btn btn-sec btn-sm" id="undoBtn" onclick="undoLastAction()" disabled>↩ Undo</button>
     <a href="rumham-floor-obs.html" target="_blank" class="btn btn-sec btn-sm" style="text-decoration:none;">📺 OBS Overlay</a>
     <button class="btn btn-danger btn-sm" onclick="resetEverything()">🔄 Reset</button>
   </div>
 </nav>
+
+<div class="help-back hidden" id="helpModal" onclick="if(event.target===this)toggleHelp(false)">
+  <div class="help-box">
+    <button class="btn btn-sec btn-sm help-close" onclick="toggleHelp(false)">✕ Close</button>
+    <h2>How to play</h2>
+    <p style="color:var(--muted);">Teams duel for slices of the pie. Last team holding the whole pie wins.</p>
+
+    <h3>Setup</h3>
+    <ul>
+      <li>Add at least 3 teams, each with a name, a category (their subject) and an optional photo.</li>
+      <li>Press Start. Teams are shuffled into a circle, each holding one equal slice.</li>
+    </ul>
+
+    <h3>A round</h3>
+    <ol>
+      <li><b>Pick next team:</b> a random team is chosen from the wheel. A team that has just passed can't be picked on the very next spin.</li>
+      <li><b>Choose a direction:</b> that team challenges the team on their left or right (only teams still on the wheel count).</li>
+      <li><b>The duel:</b> the question comes from the challenged team's category. Everyone answers and you enter every team's score, including teams already out.</li>
+      <li><b>The result:</b> only the two duelling teams' scores decide it, and the higher score wins. On a tie you pick the winner (e.g. with a tiebreaker question).</li>
+      <li><b>The slice:</b> the winner absorbs the loser's slice and their wedge grows. The loser is removed from the wheel.</li>
+      <li><b>Continue or pass:</b> the winner can challenge a neighbour again straight away, or pass and go back to a random spin.</li>
+      <li><b>Steal:</b> if the challenged team beats the challenger, it's flagged as a steal and control of the pie flips to them.</li>
+    </ol>
+
+    <h3>Winning</h3>
+    <ul>
+      <li>The game ends when one team is left and owns the whole pie.</li>
+      <li>Points are tracked separately: every team banks its score from every round, including eliminated teams. The pie winner isn't necessarily the points leader, and the standings show who did best on points alone.</li>
+    </ul>
+
+    <h3>Other features</h3>
+    <ul>
+      <li><b>Undo</b> steps back through recent actions, and an interrupted game can be resumed.</li>
+      <li>The <b>OBS overlay</b> mirrors this screen live, with the wheel, duel cards and sounds.</li>
+      <li>At the end, the <b>Pie Pack</b> gives you one image per stage plus the final points standings.</li>
+    </ul>
+  </div>
+</div>
 
 <div id="page-setup" class="page active">
   <div style="margin-bottom:1.5rem">
@@ -433,6 +480,11 @@ function addPlayerRow(name="", category=""){
   document.getElementById("player-inputs").appendChild(row);
   updateProgress();
 }
+
+function toggleHelp(show){
+  document.getElementById("helpModal").classList.toggle("hidden", !show);
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") toggleHelp(false); });
 
 function sortTeamsAZ(){
   const box = document.getElementById("player-inputs");
