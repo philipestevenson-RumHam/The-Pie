@@ -288,12 +288,13 @@ svg#wheelSvg{width:100%;height:100%;filter:drop-shadow(0 8px 30px rgba(0,0,0,0.6
 @keyframes flashGo{0%{opacity:.85}100%{opacity:0}}
 body.shake .stage{animation:shake .5s ease;}
 @keyframes shake{0%,100%{transform:none}15%{transform:translate(-9px,5px)}30%{transform:translate(8px,-6px)}45%{transform:translate(-6px,-4px)}60%{transform:translate(5px,6px)}80%{transform:translate(-3px,2px)}}
-.board{position:fixed;top:84px;left:26px;z-index:9;width:250px;background:rgba(10,6,14,.88);border:2px solid var(--neon-cyan);border-radius:14px;padding:.5rem .7rem;box-shadow:0 0 14px rgba(46,230,255,.35);}
-.board h4{font-family:'Bebas Neue',cursive;letter-spacing:.14em;color:var(--neon-cyan);font-size:.95rem;margin-bottom:.25rem;}
-.board .row{display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:.95rem;padding:.12rem 0;transition:transform .5s;}
+.board{position:fixed;top:80px;left:26px;z-index:9;width:190px;background:rgba(10,6,14,.88);border:2px solid var(--neon-cyan);border-radius:14px;padding:.35rem .55rem;box-shadow:0 0 14px rgba(46,230,255,.35);}
+@media (max-height:800px){.board{transform:scale(.84);transform-origin:top left;}}
+.board h4{font-family:'Bebas Neue',cursive;letter-spacing:.14em;color:var(--neon-cyan);font-size:.8rem;margin-bottom:.1rem;}
+.board .row{display:flex;align-items:center;gap:.4rem;font-weight:700;font-size:.82rem;line-height:1.15;padding:.05rem 0;transition:transform .5s;}
 .board .row b{font-family:'Bebas Neue',cursive;color:var(--gold);width:1rem;}
-.board .row span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.board .row em{font-style:normal;font-family:'Bebas Neue',cursive;color:var(--gold);font-size:1.1rem;}
+.board .row span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.board .row em{font-style:normal;font-family:'Bebas Neue',cursive;color:var(--gold);font-size:1rem;}
 .board .row.out{opacity:.45;}
 </style>
 </head>
@@ -536,8 +537,8 @@ function renderWheelSvg(state, opts={}){
     const lx2 = cx + (r*0.74)*Math.cos(midA), ly2 = cy + (r*0.74)*Math.sin(midA);
     html += `<g transform="rotate(${-cumulativeRotation} ${lx2} ${ly2})" class="${dimOthers && !isActive ? 'label-dimmed' : ''}">
       <rect x="${lx2-58}" y="${ly2-26}" width="116" height="44" rx="9" fill="rgba(4,2,8,0.62)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-      <text x="${lx2}" y="${ly2-6}" class="wedge-photo-name">${w.p.name}</text>
-      <text x="${lx2}" y="${ly2+13}" class="wedge-photo-cat">${w.p.category}</text>
+      <text x="${lx2}" y="${ly2-6}" class="wedge-photo-name">${clipTxt(w.p.name,12)}</text>
+      <text x="${lx2}" y="${ly2+13}" class="wedge-photo-cat">${clipTxt(w.p.category,14)}</text>
     </g>`;
   });
 
@@ -778,6 +779,8 @@ function triggerSpin(state){
 function render(){
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw){
+    // host reset / new game: if a game was on screen, reload for a completely clean overlay
+    if (lastRenderedHash !== null){ location.reload(); return; }
     document.getElementById("emptyHint").classList.remove("hidden");
     return;
   }
@@ -844,6 +847,7 @@ showWinnerBanner=function(s){_sw(s);const w=getPlayer(s,s.wheelOrder[0]);if(w)se
 const _ts=triggerSpin;
 triggerSpin=function(s){_ts(s);spinTicks();
   setTimeout(()=>{const p=getPlayer(s,s.activeId);if(p){stinger("YOU'RE UP!",p.name,COL.gold,1900);stingSound(true);}},3300);};
+function clipTxt(t,n){t=String(t);return t.length>n?t.slice(0,n-1).trimEnd()+'…':t;}
 function renderBoard(s){
   const el=document.getElementById('board');if(!s.scoreHistory){el.classList.add('hidden');return;}
   const tot=id=>(s.scoreHistory[id]||[]).reduce((a,b)=>a+b,0);

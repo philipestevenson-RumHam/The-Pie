@@ -1020,15 +1020,21 @@ function saveHostState(){
 
 function clearHostSave(){
   try { localStorage.removeItem(HOST_SAVE_KEY); } catch(e){}
+  clearOverlayState();
+}
+
+// wipe what the OBS overlay is showing so it never holds an old game
+function clearOverlayState(){
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
 }
 
 function tryResumeGame(){
   let raw;
   try { raw = localStorage.getItem(HOST_SAVE_KEY); } catch(e){ return; }
-  if (!raw) return;
+  if (!raw){ clearOverlayState(); return; }
   let snap;
-  try { snap = JSON.parse(raw); } catch(e){ return; }
-  if (!snap || !snap.gameStarted || !snap.players || !snap.players.length) return;
+  try { snap = JSON.parse(raw); } catch(e){ clearOverlayState(); return; }
+  if (!snap || !snap.gameStarted || !snap.players || !snap.players.length){ clearOverlayState(); return; }
 
   const banner = document.createElement("div");
   banner.id = "resumeBanner";
