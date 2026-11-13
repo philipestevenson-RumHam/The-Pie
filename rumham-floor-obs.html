@@ -252,6 +252,9 @@ svg#wheelSvg{width:100%;height:100%;filter:drop-shadow(0 8px 30px rgba(0,0,0,0.6
 
 .empty-hint{color:var(--muted);font-size:1rem;text-align:center;font-family:'Barlow Condensed',sans-serif;}
 
+.score-chip .sc-n{margin-left:.5rem;color:var(--gold);font-family:'Bebas Neue',cursive;font-size:1.15em;letter-spacing:.04em;}
+.score-chip.sc-win{border-color:var(--gold);background:rgba(246,201,14,.14);}
+.score-label{color:var(--muted);letter-spacing:.12em;text-transform:uppercase;border-style:dashed;}
 .category-footer{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10;
   display:flex;gap:0.55rem;flex-wrap:wrap;justify-content:center;max-width:92vw;
@@ -277,6 +280,12 @@ svg#wheelSvg{width:100%;height:100%;filter:drop-shadow(0 8px 30px rgba(0,0,0,0.6
 .stinger::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(5,3,8,.55) 0%,rgba(5,3,8,.9) 75%);z-index:-1;}
 .st-main{font-family:'Bebas Neue',cursive;font-size:min(13vw,9rem);letter-spacing:.06em;line-height:.95;color:#fff;transform:skewX(-6deg);
   text-shadow:0 0 30px var(--st-c),0 0 70px var(--st-c),0 6px 0 rgba(0,0,0,.6);animation:stSlam .55s cubic-bezier(.2,1.6,.4,1) both;text-align:center;padding:0 2rem;}
+.st-scores{display:flex;align-items:center;justify-content:center;gap:1.4rem;margin-top:1.6rem;font-family:'Bebas Neue',cursive;font-size:min(6.5vw,4.6rem);letter-spacing:.05em;color:#fff;text-shadow:0 4px 0 rgba(0,0,0,.6);animation:stRise .6s .9s ease both;padding:0 2rem;}
+.st-scores:empty{display:none;}
+.st-scores .sc-name{font-size:.55em;font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.85);max-width:30vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-scores .sc-num{min-width:1.6em;text-align:center;padding:.05em .3em;border:3px solid rgba(255,255,255,.35);border-radius:.18em;background:rgba(0,0,0,.45);}
+.st-scores .sc-num.win{color:var(--st-c);border-color:var(--st-c);box-shadow:0 0 28px var(--st-c);}
+.st-scores .sc-dash{opacity:.6;}
 .st-sub{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:min(4.2vw,2.6rem);letter-spacing:.2em;text-transform:uppercase;color:var(--st-c);margin-top:.8rem;
   text-shadow:0 0 18px var(--st-c);animation:stRise .6s .35s ease both;text-align:center;padding:0 2rem;}
 @keyframes stSlam{0%{transform:skewX(-6deg) scale(3.2);opacity:0}60%{opacity:1}100%{transform:skewX(-6deg) scale(1);opacity:1}}
@@ -335,7 +344,7 @@ body.shake .stage{animation:shake .5s ease;}
       <div class="match-crest" id="leftCrest"></div>
       <div class="match-name" id="leftName"></div>
       <div class="match-cat" id="leftCat"></div>
-      <div class="points-badge hidden" id="leftPoints"><span id="leftPointsNum"></span><span class="pts-lbl">Points</span></div>
+      <div class="points-badge hidden" id="leftPoints"><span id="leftPointsNum"></span><span class="pts-lbl">This round</span></div>
     </div>
 
     <div class="wheel-wrap hidden" id="wheelWrap">
@@ -354,7 +363,7 @@ body.shake .stage{animation:shake .5s ease;}
       <div class="match-crest" id="rightCrest"></div>
       <div class="match-name" id="rightName"></div>
       <div class="match-cat" id="rightCat"></div>
-      <div class="points-badge hidden" id="rightPoints"><span id="rightPointsNum"></span><span class="pts-lbl">Points</span></div>
+      <div class="points-badge hidden" id="rightPoints"><span id="rightPointsNum"></span><span class="pts-lbl">This round</span></div>
     </div>
   </div>
 
@@ -369,7 +378,7 @@ body.shake .stage{animation:shake .5s ease;}
 
 <div class="category-footer" id="categoryFooter"></div>
 
-<div class="stinger" id="stinger"><div class="st-main" id="stMain"></div><div class="st-sub" id="stSub"></div></div>
+<div class="stinger" id="stinger"><div class="st-main" id="stMain"></div><div class="st-sub" id="stSub"></div><div class="st-scores" id="stScores"></div></div>
 <div class="flash" id="flash"></div>
 <div class="board hidden" id="board"><h4>🏆 Leaderboard</h4><div id="boardRows"></div></div>
 <script>
@@ -379,6 +388,8 @@ let lastRenderedHash = null;
 let lastSpinSeq = null;
 let cumulativeRotation = 0;
 let lastRoundWinKey = null;
+const ROUND_WINNER_HOLD_MS = 6000;   // minimum time the round-winner screen stays up, even if the host moves on quickly
+let holdUntil = 0, holdTimer = null;
 let lastDuelStartKey = null;
 
 // ══════════════════════════════════════
@@ -730,10 +741,24 @@ function renderPhaseVisuals(state){
     const winKey = `${state.roundNumber}-${state.activeId}`;
     if (winKey !== lastRoundWinKey){
       lastRoundWinKey = winKey;
+      holdUntil = Date.now() + ROUND_WINNER_HOLD_MS;
       launchConfetti({ overSide: "left", count: 60 }); // active/winning team's card is always on the left now
       playRoundWinFanfare();
     }
+    renderScoreFooter(state);
   }
+}
+
+// every team's score for the round that just finished, in place of the category chips
+function renderScoreFooter(state){
+  const footer = document.getElementById("categoryFooter");
+  if (!footer || !state.answers) return;
+  const rows = state.players
+    .map(p => ({ p, s: state.answers[p.id] ?? 0 }))
+    .sort((a, b) => b.s - a.s);
+  footer.innerHTML = `<div class="category-chip score-label">Round scores</div>` + rows.map(r =>
+    `<div class="category-chip score-chip ${r.p.id === state.activeId ? 'sc-win' : ''}">${clipTxt(r.p.name, 12)}<b class="sc-n">${r.s}</b></div>`
+  ).join("");
 }
 
 function alignActiveToTop(state){
@@ -785,6 +810,10 @@ function render(){
     return;
   }
   if (raw === lastRenderedHash) return;
+  if (holdUntil && Date.now() < holdUntil){
+    if (!holdTimer) holdTimer = setTimeout(() => { holdTimer = null; render(); }, holdUntil - Date.now() + 30);
+    return;
+  }
   lastRenderedHash = raw;
 
   let state;
@@ -816,10 +845,16 @@ function render(){
 /* ===== GAME SHOW LAYER ===== */
 let _S=null,_stT=null,_lastTie=null;
 const COL={pink:'#ff2ea6',cyan:'#2ee6ff',gold:'#f6c90e',green:'#4ade80',red:'#f87171'};
-function stinger(main,sub,color,ms){
+function duelScoresHtml(s,w,l){
+  if(!s.answers||!w||!l||s.answers[w.id]===undefined||s.answers[l.id]===undefined) return '';
+  const a=s.answers[w.id],b=s.answers[l.id];
+  return `<span class="sc-name">${escH(w.name)}</span><span class="sc-num ${a>b?'win':''}">${a}</span><span class="sc-dash">–</span><span class="sc-num ${b>a?'win':''}">${b}</span><span class="sc-name">${escH(l.name)}</span>`;
+}
+function escH(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function stinger(main,sub,color,ms,scoresHtml){
   ms=ms||2200; const el=document.getElementById('stinger');
   el.style.setProperty('--st-c',COL[color]||color||COL.gold); el.style.setProperty('--st-ms',ms+'ms');
-  document.getElementById('stMain').textContent=main; document.getElementById('stSub').textContent=sub||'';
+  document.getElementById('stMain').textContent=main; document.getElementById('stSub').textContent=sub||''; document.getElementById('stScores').innerHTML=scoresHtml||'';
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   const f=document.getElementById('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
   document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
@@ -841,9 +876,12 @@ playDuelDing=function(){_dd();const s=_S;if(!s)return;const a=getPlayer(s,s.acti
   if(a&&b){stinger('DUEL!',a.name+'  vs  '+b.name,COL.pink,2400);drumroll(1.4);}};
 const _rw=playRoundWinFanfare;
 playRoundWinFanfare=function(){_rw();const s=_S;if(!s)return;const w=getPlayer(s,s.activeId),l=getPlayer(s,s.opponentId);if(!w||!l)return;
-  stinger(s.ownershipChanged?'⚡ STEAL! ⚡':'SLICE WON!',w.name+' absorbs '+l.name+(s.ownershipChanged?' — control flips!':''),s.ownershipChanged?COL.cyan:COL.green,2600);stingSound(true);};
+  const sc=duelScoresHtml(s,w,l);
+  stinger(s.ownershipChanged?'⚡ STEAL! ⚡':'SLICE WON!',w.name+' absorbs '+l.name+(s.ownershipChanged?' — control flips!':''),s.ownershipChanged?COL.cyan:COL.green,5500,sc);stingSound(true);};
 const _sw=showWinnerBanner;
-showWinnerBanner=function(s){_sw(s);const w=getPlayer(s,s.wheelOrder[0]);if(w)setTimeout(()=>stinger('🥧 CHAMPIONS 🥧',w.name+' owns the pie',COL.gold,4200),150);};
+showWinnerBanner=function(s){_sw(s);const w=getPlayer(s,s.wheelOrder[0]);
+  const l=s.opponentId!=null&&s.opponentId!==w?.id?getPlayer(s,s.opponentId):null;
+  if(w)setTimeout(()=>stinger('🥧 CHAMPIONS 🥧',w.name+' owns the pie',COL.gold,7500,duelScoresHtml(s,w,l)),150);};
 const _ts=triggerSpin;
 triggerSpin=function(s){_ts(s);spinTicks();
   setTimeout(()=>{const p=getPlayer(s,s.activeId);if(p){stinger("YOU'RE UP!",p.name,COL.gold,1900);stingSound(true);}},3300);};
